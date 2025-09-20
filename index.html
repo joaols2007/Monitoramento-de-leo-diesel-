@@ -1,0 +1,473 @@
+// Variáveis globais de ambiente fornecidas pelo sistema
+const canvasAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+// Configurações do Firebase
+firebase.firestore.setLogLevel('debug');
+let db;
+let auth;
+let currentAppId = canvasAppId;
+let userId = null;
+
+let fuelData = {
+    fire: [],
+    generator: []
+};
+
+let chart = null;
+let currentChartType = 'line';
+
+// Função para mostrar notificações personalizadas
+function showNotification(message, type) {
+    const container = document.getElementById('notification-container');
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    container.appendChild(notification);
+    setTimeout(() => {
+        notification.style.transform = 'translateX(200%)';
+        notification.addEventListener('transitionend', () => notification.remove());
+    }, 3000);
+}
+
+// Função para controlar o estado de carregamento da UI
+function setLoadingState(isLoading) {
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const appContent = document.getElementById('appContent');
+    const loginSection = document.getElementById('loginSection');
+    if (isLoading) {
+        loadingOverlay.style.display = 'flex';
+        appContent.style.display = 'none';
+        loginSection.style.display = 'none';
+    } else {
+        // O resto da lógica de exibição continua na função de autenticação
+    }
+}
+
+// Função para inicializar o Firebase e autenticar
+async function initializeAndAuth(appIdToUse) {
+    setLoadingState(true);
+    if (!firebaseConfig) {
+        console.error("Firebase config is not available.");
+        showNotification('Erro de configuração do Firebase.', 'error');
+        setLoadingState(false);
+        return;
+    }
+
+    try {
+        // Reinicializa o app com o ID do projeto
+        const app = firebase.initializeApp(firebaseConfig, appIdToUse);
+        db = app.firestore();
+        auth = app.auth();
+        currentAppId = appIdToUse;
+        
+        // Trata a autenticação de forma correta
+        if (initialAuthToken) {
+            await auth.signInWithCustomToken(initialAuthToken);
+        } else {
+            await auth.signInAnonymously();
+        }
+        
+        // Espera a autenticação para prosseguir
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                userId = user.uid;
+                document.getElementById('userIdDisplay').textContent = `ID do Usuário: ${userId}`;
+                
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('appContent').style.display = 'block';
+                
+                document.getElementById('fireBtn').disabled = false;
+                document.getElementById('fireBtn').classList.remove('disabled-button');
+                document.getElementById('generatorBtn').disabled = false;
+                document.getElementById('generatorBtn').classList.remove('disabled-button');
+
+                setLoadingState(false);
+                
+                // Inicia os listeners após a autenticação
+                startFirestoreListeners();
+                updateClock();
+            } else {
+                // Se a autenticação falhar, exibe a seção de login
+                document.getElementById('loginSection').style.display = 'block';
+                document.getElementById('appContent').style.display = 'none';
+                setLoadingState(false);
+            }
+        });
+
+    } catch (error) {
+        console.error("Erro ao inicializar Firebase: ", error);
+        showNotification('Erro ao inicializar o sistema. Tente novamente.', 'error');
+        setLoadingState(false);
+        document.getElementById('loginSection').style.display = 'block';
+        document.getElementById('appContent').style.display = 'none';
+    }
+}
+
+// Função para o usuário entrar em um projeto existente
+async function joinProject() {
+    const projectIdInput = document.getElementById('projectIdInput');
+    const newAppId = projectIdInput.value.trim();
+    if (newAppId) {
+        // Encerra a conexão atual antes de iniciar uma nova
+        if (firebase.apps.length > 0) {
+            await firebase.app().delete();
+        }
+        initializeAndAuth(newAppId);
+    } else {
+        projectIdInput.classList.add('error');
+        showNotification('Por favor, digite um ID de projeto.', 'error');
+    }
+}
+
+// Inicia o sistema com o ID de projeto padrão (fornecido pelo Gemini)
+initializeAndAuth(canvasAppId);
+
+// Adiciona um listener para o Enter no campo de ID do projeto
+document.getElementById('projectIdInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        joinProject();
+    }
+});
+
+function startFirestoreListeners() {
+    const fireDataRef = db.collection('projects').doc(currentAppId).collection('fuel-records')
+        .where('pump', '==', 'fire');
+    const generatorDataRef = db.collection('projects').doc(currentAppId).collection('fuel-records')
+        .where('pump', '==', 'generator');
+    const allDataRef = db.collection('projects').doc(currentAppId).collection('fuel-records');
+
+    // Listener para a Bomba de Incêndio
+    fireDataRef.orderBy('date', 'desc').limit(1).onSnapshot(snapshot => {
+        if (!snapshot.empty) {
+            const latestDoc = snapshot.docs[0].data();
+            const latestAmount = latestDoc.amount;
+            document.getElementById('fireLevel').textContent = `${latestAmount.toFixed(2)}L`;
+            const progress = (latestAmount / 1000) * 100;
+            document.getElementById('fireProgress').style.width = `${Math.min(100, progress)}%`;
+        }
+    }, err => {
+        console.error("Erro ao receber dados do Firestore (fire): ", err);
+    });
+
+    // Listener para a Bomba do Gerador
+    generatorDataRef.orderBy('date', 'desc').limit(1).onSnapshot(snapshot => {
+        if (!snapshot.empty) {
+            const latestDoc = snapshot.docs[0].data();
+            const latestAmount = latestDoc.amount;
+            document.getElementById('generatorLevel').textContent = `${latestAmount.toFixed(2)}L`;
+            const progress = (latestAmount / 800) * 100;
+            document.getElementById('generatorProgress').style.width = `${Math.min(100, progress)}%`;
+        }
+    }, err => {
+        console.error("Erro ao receber dados do Firestore (generator): ", err);
+    });
+
+    // Listener para todos os dados, para o histórico e o gráfico
+    allDataRef.orderBy('date', 'desc').onSnapshot(snapshot => {
+        if (snapshot.empty) {
+            showNotification('Nenhum registro encontrado.', 'warning');
+            updateUI([], []);
+            return;
+        }
+
+        const newFireData = [];
+        const newGeneratorData = [];
+        const historyTableBody = document.getElementById('historyTable');
+        historyTableBody.innerHTML = ''; // Limpa a tabela
+
+        let totalOil = 0;
+        let recordCount = 0;
+
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.pump === 'fire') {
+                newFireData.push(data);
+            } else if (data.pump === 'generator') {
+                newGeneratorData.push(data);
+            }
+            
+            // Adiciona à tabela de histórico
+            const row = document.createElement('tr');
+            row.className = 'border-b border-white/5 transition-colors hover:bg-white/5 fade-in scale-in';
+            row.innerHTML = `
+                <td class="text-left py-3 px-6 text-slate-400 text-sm">${data.date}</td>
+                <td class="text-left py-3 px-6 font-medium text-slate-300 text-sm">${data.pump === 'fire' ? 'Bomba de Incêndio' : 'Bomba do Gerador'}</td>
+                <td class="text-left py-3 px-6 font-bold text-lg ${data.pump === 'fire' ? 'text-red-400' : 'text-indigo-400'}">${data.amount.toFixed(2)}L</td>
+                <td class="text-left py-3 px-6">
+                    <span class="inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-xs font-medium bg-green-500/20 text-green-400">
+                        <svg class="w-2 h-2 fill-green-500" viewBox="0 0 6 6">
+                            <path d="M3 0a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"></path>
+                        </svg>
+                        OK
+                    </span>
+                </td>
+            `;
+            historyTableBody.appendChild(row);
+
+            // Calcula a média
+            totalOil += data.amount;
+            recordCount++;
+        });
+
+        // Atualiza a média de óleo
+        const average = recordCount > 0 ? totalOil / recordCount : 0;
+        document.getElementById('averageOil').textContent = `${average.toFixed(2)}L`;
+        const averageProgress = (average / 900) * 100; // Média baseada em 900L (metade da soma das capacidades)
+        document.getElementById('averageProgress').style.width = `${Math.min(100, averageProgress)}%`;
+
+        fuelData.fire = newFireData;
+        fuelData.generator = newGeneratorData;
+        
+        updateChart();
+    }, err => {
+        console.error("Erro ao receber dados do Firestore: ", err);
+    });
+}
+
+// Funções de Adição de Dados (agora enviam também para o Google Sheets)
+async function addFireData() {
+    const date = document.getElementById('fireDate').value;
+    const amount = document.getElementById('fireInput').value;
+
+    if (!date || !amount) {
+        showNotification('Preencha todos os campos.', 'error');
+        return;
+    }
+
+    const payload = {
+        date: date,
+        pump: 'Bomba de Incêndio',
+        amount: parseFloat(amount)
+    };
+
+    // Tenta enviar os dados para o Google Sheets
+    try {
+        const url = "https://script.google.com/macros/s/AKfycbyeMkzoqK14k4sz7gA_jOgaUYOwgJk8VPYiVOJYfUZCjI0px93yDHImAj1ZN3iFB-Ap/exec";
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                date: payload.date,
+                pump: payload.pump,
+                amount: payload.amount
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Erro ao enviar dados para a planilha.');
+        }
+
+        showNotification('Registro adicionado com sucesso na planilha!', 'success');
+    } catch (error) {
+        console.error("Erro ao enviar para o Google Sheets: ", error);
+        showNotification(`Erro ao sincronizar com a planilha: ${error.message}`, 'error');
+    }
+
+    // Adiciona ao Firebase
+    db.collection('projects').doc(currentAppId).collection('fuel-records').add({
+        date: payload.date,
+        pump: 'fire',
+        amount: payload.amount,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+        showNotification('Registro da Bomba de Incêndio adicionado com sucesso no Firebase!', 'success');
+        document.getElementById('fireInput').value = '';
+    })
+    .catch((error) => {
+        console.error("Erro ao adicionar documento: ", error);
+        showNotification('Erro ao adicionar registro. Tente novamente.', 'error');
+    });
+}
+
+async function addGeneratorData() {
+    const date = document.getElementById('generatorDate').value;
+    const amount = document.getElementById('generatorInput').value;
+
+    if (!date || !amount) {
+        showNotification('Preencha todos os campos.', 'error');
+        return;
+    }
+
+    const payload = {
+        date: date,
+        pump: 'Bomba do Gerador',
+        amount: parseFloat(amount)
+    };
+
+    // Tenta enviar os dados para o Google Sheets
+    try {
+        const url = "https://script.google.com/macros/s/AKfycbyeMkzoqK14k4sz7gA_jOgaUYOwgJk8VPYiVOJYfUZCjI0px93yDHImAj1ZN3iFB-Ap/exec";
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                date: payload.date,
+                pump: payload.pump,
+                amount: payload.amount
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Erro ao enviar dados para a planilha.');
+        }
+
+        showNotification('Registro adicionado com sucesso na planilha!', 'success');
+    } catch (error) {
+        console.error("Erro ao enviar para o Google Sheets: ", error);
+        showNotification(`Erro ao sincronizar com a planilha: ${error.message}`, 'error');
+    }
+
+    // Adiciona ao Firebase
+    db.collection('projects').doc(currentAppId).collection('fuel-records').add({
+        date: payload.date,
+        pump: 'generator',
+        amount: payload.amount,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+        showNotification('Registro da Bomba do Gerador adicionado com sucesso no Firebase!', 'success');
+        document.getElementById('generatorInput').value = '';
+    })
+    .catch((error) => {
+        console.error("Erro ao adicionar documento: ", error);
+        showNotification('Erro ao adicionar registro. Tente novamente.', 'error');
+    });
+}
+
+// Funções para o Gráfico
+function updateChart() {
+    if (chart) {
+        chart.destroy();
+    }
+    const ctx = document.getElementById('chart').getContext('2d');
+    
+    // Organiza os dados por data para o gráfico
+    const allData = [...fuelData.fire, ...fuelData.generator].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const labels = [...new Set(allData.map(item => item.date))];
+    const fireAmounts = labels.map(date => {
+        const record = fuelData.fire.find(item => item.date === date);
+        return record ? record.amount : null;
+    });
+    const generatorAmounts = labels.map(date => {
+        const record = fuelData.generator.find(item => item.date === date);
+        return record ? record.amount : null;
+    });
+
+    const fireColor = 'rgb(239, 68, 68)';
+    const generatorColor = 'rgb(99, 102, 241)';
+
+    const datasets = [{
+        label: 'Bomba de Incêndio (L)',
+        data: fireAmounts,
+        borderColor: fireColor,
+        backgroundColor: currentChartType === 'area' ? 'rgba(239, 68, 68, 0.2)' : fireColor,
+        fill: currentChartType === 'area',
+        tension: 0.4
+    }, {
+        label: 'Bomba do Gerador (L)',
+        data: generatorAmounts,
+        borderColor: generatorColor,
+        backgroundColor: currentChartType === 'area' ? 'rgba(99, 102, 241, 0.2)' : generatorColor,
+        fill: currentChartType === 'area',
+        tension: 0.4
+    }];
+    
+    chart = new Chart(ctx, {
+        type: currentChartType,
+        data: {
+            labels: labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Quantidade de Combustível (L)',
+                        color: '#94a3b8'
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: '#94a3b8'
+                    }
+                },
+                x: {
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: '#94a3b8'
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    titleColor: '#fff',
+                    bodyColor: '#e2e8f0',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1
+                },
+                legend: {
+                    labels: {
+                        color: '#e2e8f0'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function switchChart(type) {
+    currentChartType = type;
+    document.getElementById('lineBtn').classList.remove('gradient-primary', 'glass-card', 'border-white/20');
+    document.getElementById('lineBtn').classList.add(type === 'line' ? 'gradient-primary' : 'glass-card', type === 'line' ? '' : 'border-white/20');
+    document.getElementById('barBtn').classList.remove('gradient-primary', 'glass-card', 'border-white/20');
+    document.getElementById('barBtn').classList.add(type === 'bar' ? 'gradient-primary' : 'glass-card', type === 'bar' ? '' : 'border-white/20');
+    document.getElementById('areaBtn').classList.remove('gradient-primary', 'glass-card', 'border-white/20');
+    document.getElementById('areaBtn').classList.add(type === 'area' ? 'gradient-primary' : 'glass-card', type === 'area' ? '' : 'border-white/20');
+    updateChart();
+}
+
+// Funções para a data e hora
+function updateClock() {
+    const now = new Date();
+    const formattedDate = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
+    const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+    document.getElementById('currentTime').textContent = `${formattedDate} ${formattedTime}`;
+}
+setInterval(updateClock, 1000);
+
+// Funções do Modal de Compartilhamento
+function shareSystem() {
+    const shareLinkInput = document.getElementById('shareLink');
+    shareLinkInput.value = currentAppId;
+    document.getElementById('shareModal').style.display = 'flex';
+}
+
+function closeShareModal() {
+    document.getElementById('shareModal').style.display = 'none';
+}
+
+function copyLink() {
+    const shareLinkInput = document.getElementById('shareLink');
+    shareLinkInput.select();
+    shareLinkInput.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(shareLinkInput.value)
+        .then(() => showNotification('ID do projeto copiado!', 'success'))
+        .catch(() => showNotification('Falha ao copiar o ID.', 'error'));
+}
