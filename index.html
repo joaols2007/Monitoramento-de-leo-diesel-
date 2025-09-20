@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brilux - Monitoramento de Combustível</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+        
+        * {
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        /* Paleta de Cores Personalizada */
+        :root {
+            --primary: #6366f1;
+            --secondary: #8b5cf6;
+            --accent: #06b6d4;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #0f172a;
+            --darker: #020617;
+        }
+        
+        /* Animações das Letras */
+        @keyframes letterFloat {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            25% { transform: translateY(-10px) rotate(2deg); }
+            50% { transform: translateY(-5px) rotate(-1deg); }
+            75% { transform: translateY(-8px) rotate(1deg); }
+        }
+        
+        @keyframes letterGlow {
+            0%, 100% { text-shadow: 0 0 20px rgba(99, 102, 241, 0.5); }
+            50% { text-shadow: 0 0 30px rgba(139, 92, 246, 0.8), 0 0 40px rgba(6, 182, 212, 0.6); }
+        }
+        
+        @keyframes buttonPulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        @keyframes liquidRise {
+            from { height: 0%; }
+            to { height: var(--target-height); }
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: calc(200px + 100%) 0; }
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 53%, 80%, 100% { transform: translate3d(0,0,0); }
+            40%, 43% { transform: translate3d(0, -8px, 0); }
+            70% { transform: translate3d(0, -4px, 0); }
+            90% { transform: translate3d(0, -2px, 0); }
+        }
+        
+        .letter-float { animation: letterFloat 3s ease-in-out infinite; }
+        .letter-glow { animation: letterGlow 2s ease-in-out infinite; }
+        .button-pulse { animation: buttonPulse 2s infinite; }
+        .slide-up { animation: slideUp 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+        .fade-in { animation: fadeIn 1s ease-out; }
+        .scale-in { animation: scaleIn 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+        .liquid-rise { animation: liquidRise 2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .bounce-hover:hover { animation: bounce 1s; }
+        
+        /* Delay para cada letra */
+        .letter-1 { animation-delay: 0s; }
+        .letter-2 { animation-delay: 0.1s; }
+        .letter-3 { animation-delay: 0.2s; }
+        .letter-4 { animation-delay: 0.3s; }
+        .letter-5 { animation-delay: 0.4s; }
+        .letter-6 { animation-delay: 0.5s; }
+        
+        /* Efeitos Visuais */
+        .glass-card {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .gradient-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+        }
+        
+        .gradient-accent {
+            background: linear-gradient(135deg, var(--accent), var(--success));
+        }
+        
+        .gradient-warning {
+            background: linear-gradient(135deg, var(--warning), var(--danger));
+        }
+        
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            background-size: 200px 100%;
+            animation: shimmer 2s infinite;
+        }
+        
+        .hover-lift {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+        }
+        
+        .animated-button {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .animated-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .animated-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .animated-button:hover::before {
+            left: 100%;
+        }
+        
+        /* Scrollbar Personalizada */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--darker); }
+        ::-webkit-scrollbar-thumb { 
+            background: linear-gradient(var(--primary), var(--secondary)); 
+            border-radius: 4px; 
+        }
+
+        /* Notificação */
+        #notification-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+        .notification {
+            padding: 1rem 1.5rem;
+            border-radius: 1rem;
+            color: white;
+            font-weight: 500;
+            margin-top: 1rem;
+            transition: all 0.5s ease-in-out;
+            transform: translateX(200%);
+            animation: slideIn 0.5s forwards;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+        .notification.success { background: var(--success); }
+        .notification.error { background: var(--danger); }
+        @keyframes slideIn {
+            to { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 min-h-screen text-white">
+    <header class="relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-r from-indigo-600/20 via-purple-600/20 to-cyan-600/20"></div>
+        <div class="relative glass-card border-b border-white/10">
+            <div class="max-w-7xl mx-auto px-6 py-8">
+                <div class="text-center mb-8 fade-in">
+                    <h1 class="text-6xl font-bold mb-2">
+                        <span class="letter-float letter-1 letter-glow inline-block bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">B</span>
+                        <span class="letter-float letter-2 letter-glow inline-block bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">R</span>
+                        <span class="letter-float letter-3 letter-glow inline-block bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">I</span>
+                        <span class="letter-float letter-4 letter-glow inline-block bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">L</span>
+                        <span class="letter-float letter-5 letter-glow inline-block bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">U</span>
+                        <span class="letter-float letter-6 letter-glow inline-block bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">X</span>
+                    </h1>
+                    <p class="text-2xl font-semibold text-slate-300 mb-1">RAYMUNDO DA FONTE</p>
+                    <p class="text-lg text-slate-400">Sistema de Monitoramento de Combustível</p>
+                </div>
+                
+                <div class="flex items-center justify-center space-x-8 slide-up">
+                    <div class="flex items-center space-x-3 glass-card rounded-2xl px-6 py-4 bounce-hover">
+                        <div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                        <span class="text-sm font-medium text-green-400">Sistema Online</span>
+                    </div>
+                    
+                    <div class="flex items-center space-x-3 glass-card rounded-2xl px-6 py-4 bounce-hover">
+                        <svg class="w-5 h-5 text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-sm font-medium text-cyan-400" id="currentTime"></span>
+                    </div>
+                    
+                    <button onclick="shareSystem()" class="animated-button flex items-center space-x-2 gradient-primary rounded-2xl px-6 py-4 font-medium button-pulse">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z"/>
+                        </svg>
+                        <span>Compartilhar</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 py-12 space-y-12">
+        <div class="glass-card rounded-3xl p-8 slide-up border border-white/10" style="animation-delay: 0.1s">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent mb-2">
+                    Registro de Combustível
+                </h2>
+                <p class="text-slate-400">Adicione os dados das bombas com data específica</p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="glass-card rounded-3xl p-8 border border-red-500/20 hover-lift">
+                    <div class="text-center mb-6">
+                        <div class="w-16 h-16 bg-gradient-to-br from-red-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 bounce-hover">
+                            <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-red-400 mb-2">BOMBA DE INCÊNDIO</h3>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-2">Data</label>
+                            <input type="date" id="fireDate" class="w-full px-4 py-3 glass-card border border-red-500/30 rounded-2xl text-white focus:border-red-400 focus:outline-none transition-colors">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-2">Quantidade (Litros)</label>
+                            <input type="number" id="fireInput" placeholder="Digite a quantidade" min="0" max="1000" 
+                                class="w-full px-4 py-3 glass-card border border-red-500/30 rounded-2xl text-white placeholder-slate-400 focus:border-red-400 focus:outline-none transition-colors">
+                        </div>
+                        
+                        <button onclick="addFireData()" class="animated-button w-full px-6 py-4 bg-gradient-to-r from-red-500 to-pink-500 rounded-2xl font-semibold">
+                            Adicionar Registro
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-3xl p-8 border border-indigo-500/20 hover-lift">
+                    <div class="text-center mb-6">
+                        <div class="w-16 h-16 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4 bounce-hover">
+                            <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.34.208-.646.477-.859a4 4 0 10-4.954 0c.27.213.462.519.477.859h4z"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-indigo-400 mb-2">BOMBA DO GERADOR</h3>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-2">Data</label>
+                            <input type="date" id="generatorDate" class="w-full px-4 py-3 glass-card border border-indigo-500/30 rounded-2xl text-white focus:border-indigo-400 focus:outline-none transition-colors">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-300 mb-2">Quantidade (Litros)</label>
+                            <input type="number" id="generatorInput" placeholder="Digite a quantidade" min="0" max="800" 
+                                class="w-full px-4 py-3 glass-card border border-indigo-500/30 rounded-2xl text-white placeholder-slate-400 focus:border-indigo-400 focus:outline-none transition-colors">
+                        </div>
+                        
+                        <button onclick="addGeneratorData()" class="animated-button w-full px-6 py-4 gradient-primary rounded-2xl font-semibold">
+                            Adicionar Registro
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="glass-card rounded-3xl p-8 hover-lift slide-up border border-cyan-500/20" style="animation-delay: 0.2s">
+                <div class="text-center">
+                    <div class="w-16 h-16 gradient-accent rounded-2xl flex items-center justify-center mx-auto mb-6 bounce-hover">
+                        <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-slate-300 mb-2">Média de Óleo</h3>
+                    <p class="text-4xl font-bold text-cyan-400 mb-4" id="averageOil">0L</p>
+                    <div class="w-full bg-slate-700/50 rounded-full h-3 overflow-hidden">
+                        <div class="gradient-accent h-3 rounded-full transition-all duration-2000 shimmer" style="width: 0%" id="averageProgress"></div>
+                    </div>
+                    <p class="text-sm text-slate-400 mt-3">Média Geral</p>
+                </div>
+            </div>
+
+            <div class="glass-card rounded-3xl p-8 hover-lift slide-up border border-red-500/20" style="animation-delay: 0.3s">
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-gradient-to-br from-red-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-6 bounce-hover">
+                        <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-slate-300 mb-2">Bomba Incêndio</h3>
+                    <p class="text-4xl font-bold text-red-400 mb-4" id="fireLevel">0L</p>
+                    <div class="w-full bg-slate-700/50 rounded-full h-3 overflow-hidden">
+                        <div class="bg-gradient-to-r from-red-500 to-pink-500 h-3 rounded-full transition-all duration-2000" style="width: 0%" id="fireProgress"></div>
+                    </div>
+                    <p class="text-sm text-slate-400 mt-3">Último Registro</p>
+                </div>
+            </div>
+
+            <div class="glass-card rounded-3xl p-8 hover-lift slide-up border border-indigo-500/20" style="animation-delay: 0.4s">
+                <div class="text-center">
+                    <div class="w-16 h-16 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-6 bounce-hover">
+                        <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.34.208-.646.477-.859a4 4 0 10-4.954 0c.27.213.462.519.477.859h4z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-slate-300 mb-2">Bomba Gerador</h3>
+                    <p class="text-4xl font-bold text-indigo-400 mb-4" id="generatorLevel">0L</p>
+                    <div class="w-full bg-slate-700/50 rounded-full h-3 overflow-hidden">
+                        <div class="gradient-primary h-3 rounded-full transition-all duration-2000" style="width: 0%" id="generatorProgress"></div>
+                    </div>
+                    <p class="text-sm text-slate-400 mt-3">Último Registro</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card rounded-3xl p-8 slide-up border border-white/10" style="animation-delay: 0.5s">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-2">
+                    Análise de Combustível
+                </h2>
+                <p class="text-slate-400">Histórico e tendências das bombas</p>
+            </div>
+            
+            <div class="flex justify-center space-x-4 mb-8">
+                <button onclick="switchChart('line')" id="lineBtn" class="animated-button px-6 py-3 gradient-primary rounded-2xl font-semibold">
+                    Linha Temporal
+                </button>
+                <button onclick="switchChart('bar')" id="barBtn" class="animated-button px-6 py-3 glass-card border border-white/20 rounded-2xl font-semibold hover:border-white/40 transition-colors">
+                    Barras Comparativas
+                </button>
+                <button onclick="switchChart('area')" id="areaBtn" class="animated-button px-6 py-3 glass-card border border-white/20 rounded-2xl font-semibold hover:border-white/40 transition-colors">
+                    Área Preenchida
+                </button>
+            </div>
+            
+            <div class="h-80 glass-card rounded-3xl p-6 border border-white/10">
+                <canvas id="chart"></canvas>
+            </div>
+        </div>
+
+        <div class="glass-card rounded-3xl p-8 slide-up border border-white/10" style="animation-delay: 0.6s">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">
+                    Histórico de Registros
+                </h2>
+                <p class="text-slate-400">Últimos registros adicionados</p>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-white/10">
+                            <th class="text-left py-4 px-6 text-slate-300 font-semibold">Data</th>
+                            <th class="text-left py-4 px-6 text-slate-300 font-semibold">Bomba</th>
+                            <th class="text-left py-4 px-6 text-slate-300 font-semibold">Quantidade</th>
+                            <th class="text-left py-4 px-6 text-slate-300 font-semibold">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTable">
+                        <tr>
+                            <td colspan="4" class="text-center py-8 text-slate-400">Nenhum registro encontrado</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <div id="shareModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="glass-card rounded-3xl p-8 max-w-lg w-full mx-4 border border-white/20 scale-in">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4 bounce-hover">
+                    <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z"/>
+                    </svg>
+                </div>
+                <h3 class="text-2xl font-bold text-white mb-2">Compartilhar Sistema</h3>
+                <p class="text-slate-400">Envie o link do monitoramento para outros usuários</p>
+            </div>
+            
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-3">Link do Sistema</label>
+                    <div class="flex">
+                        <input type="text" id="shareLink" readonly class="flex-1 px-4 py-3 glass-card border border-white/20 rounded-l-2xl text-white text-sm">
+                        <button onclick="copyLink()" class="animated-button px-6 py-3 gradient-accent rounded-r-2xl font-semibold">
+                            Copiar
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="shareWhatsApp()" class="animated-button flex items-center justify-center space-x-2 px-6 py-4 bg-green-600 hover:bg-green-700 rounded-2xl font-semibold transition-colors">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.106"/>
+                        </svg>
+                        <span>WhatsApp</span>
+                    </button>
+                    
+                    <button onclick="shareEmail()" class="animated-button flex items-center justify-center space-x-2 px-6 py-4 gradient-primary rounded-2xl font-semibold">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                        </svg>
+                        <span>Email</span>
+                    </button>
+                </div>
+                
+                <button onclick="closeShareModal()" class="animated-button w-full px-6 py-3 glass-card border border-white/20 rounded-2xl font-semibold hover:border-white/40 transition-colors">
+                    Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="notification-container"></div>
+    
+    <script>
+        // Dados do sistema
+        let fuelData = {
+            fire: [],
+            generator: []
+        };
+        
+        let chart = null;
+        let currentChartType = 'line';
+        
+        // --- FUNÇÕES DE ARMAZENAMENTO ---
+        function saveData() {
+            localStorage.setItem('fuelData', JSON.stringify(fuelData));
+        }
+        
+        function loadData() {
+            const savedData = localStorage.getItem('fuelData');
+            if (savedData) {
+                fuelData = JSON.parse(savedData);
+            }
+        }
+
+        // --- FUNÇÕES DE REGISTRO E ATUALIZAÇÃO ---
+        function updateAll() {
+            updateDisplay();
+            updateHistory();
+            updateChart();
+            saveData(); // Salva os dados após cada atualização
+        }
+
+        function addFireData() {
+            const dateInput = document.getElementById('fireDate');
+            const amountInput = document.getElementById('fireInput');
+            
+            const date = dateInput.value;
+            const amount = parseFloat(amountInput.value);
+
+            if (!date || isNaN(amount) || amount <= 0) {
+                showNotification('Por favor, preencha a data e a quantidade válidas.', 'error');
+                return;
+            }
+
+            fuelData.fire.push({ date: date, amount: amount, timestamp: new Date().getTime() });
+            
+            // Limita o histórico para não sobrecarregar o localStorage
+            if (fuelData.fire.length > 50) {
+                fuelData.fire = fuelData.fire.slice(fuelData.fire.length - 50);
+            }
+            
+            updateAll();
+            showNotification('Registro da Bomba de Incêndio adicionado com sucesso!', 'success');
+            
+            // Limpa os campos
+            dateInput.value = '';
+            amountInput.value = '';
+        }
+
+        function addGeneratorData() {
+            const dateInput = document.getElementById('generatorDate');
+            const amountInput = document.getElementById('generatorInput');
+            
+            const date = dateInput.value;
+            const amount = parseFloat(amountInput.value);
+
+            if (!date || isNaN(amount) || amount <= 0) {
+                showNotification('Por favor, preencha a data e a quantidade válidas.', 'error');
+                return;
+            }
+
+            fuelData.generator.push({ date: date, amount: amount, timestamp: new Date().getTime() });
+            
+            // Limita o histórico para não sobrecarregar o localStorage
+            if (fuelData.generator.length > 50) {
+                fuelData.generator = fuelData.generator.slice(fuelData.generator.length - 50);
+            }
+            
+            updateAll();
+            showNotification('Registro da Bomba do Gerador adicionado com sucesso!', 'success');
+            
+            // Limpa os campos
+            dateInput.value = '';
+            amountInput.value = '';
+        }
+
+        function updateDisplay() {
+            const fireAvg = fuelData.fire.length > 0 ? 
+                fuelData.fire.reduce((sum, item) => sum + item.amount, 0) / fuelData.fire.length : 0;
+            const generatorAvg = fuelData.generator.length > 0 ? 
+                fuelData.generator.reduce((sum, item) => sum + item.amount, 0) / fuelData.generator.length : 0;
+            const overallAvg = (fireAvg + generatorAvg) / 2;
+            const lastFire = fuelData.fire.length > 0 ? 
+                fuelData.fire[fuelData.fire.length - 1].amount : 0;
+            const lastGenerator = fuelData.generator.length > 0 ? 
+                fuelData.generator[fuelData.generator.length - 1].amount : 0;
+
+            document.getElementById('averageOil').textContent = Math.round(overallAvg) + 'L';
+            document.getElementById('averageProgress').style.width = Math.min(100, (overallAvg / 500) * 100) + '%';
+            document.getElementById('fireLevel').textContent = lastFire + 'L';
+            document.getElementById('fireProgress').style.width = Math.min(100, (lastFire / 1000) * 100) + '%';
+            document.getElementById('generatorLevel').textContent = lastGenerator + 'L';
+            document.getElementById('generatorProgress').style.width = Math.min(100, (lastGenerator / 800) * 100) + '%';
+        }
+        
+        function updateHistory() {
+            const tbody = document.getElementById('historyTable');
+            const allRecords = [];
+            
+            fuelData.fire.forEach(item => {
+                allRecords.push({
+                    ...item,
+                    type: 'Bomba de Incêndio',
+                    color: 'text-red-400'
+                });
+            });
+            
+            fuelData.generator.forEach(item => {
+                allRecords.push({
+                    ...item,
+                    type: 'Bomba do Gerador',
+                    color: 'text-indigo-400'
+                });
+            });
+            
+            allRecords.sort((a, b) => b.timestamp - a.timestamp);
+            
+            if (allRecords.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">Nenhum registro encontrado</td></tr>';
+                return;
+            }
+            
+            const recentRecords = allRecords.slice(0, 10);
+            
+            tbody.innerHTML = recentRecords.map(record => {
+                const date = new Date(record.date + 'T12:00:00').toLocaleDateString('pt-BR');
+                const status = record.amount > 500 ? 'Normal' : record.amount > 200 ? 'Atenção' : 'Crítico';
+                const statusColor = status === 'Normal' ? 'text-green-400' : status === 'Atenção' ? 'text-yellow-400' : 'text-red-400';
+                
+                return `
+                    <tr class="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
+                        <td class="py-4 px-6 text-slate-400">${date}</td>
+                        <td class="py-4 px-6 font-medium ${record.color}">${record.type}</td>
+                        <td class="py-4 px-6 text-white font-bold">${record.amount}L</td>
+                        <td class="py-4 px-6">
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${statusColor}">${status}</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateChart() {
+            if (chart) {
+                chart.destroy();
+            }
+
+            const dates = Array.from(new Set([
+                ...fuelData.fire.map(item => item.date),
+                ...fuelData.generator.map(item => item.date)
+            ])).sort();
+
+            const fireData = dates.map(date => {
+                const item = fuelData.fire.find(d => d.date === date);
+                return item ? item.amount : null;
+            });
+            const generatorData = dates.map(date => {
+                const item = fuelData.generator.find(d => d.date === date);
+                return item ? item.amount : null;
+            });
+
+            const ctx = document.getElementById('chart').getContext('2d');
+            
+            let chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: 'rgba(255, 255, 255, 0.7)'
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.7)'
+                        }
+                    },
+                    y: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.7)'
+                        }
+                    }
+                }
+            };
+            
+            const commonData = {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'Bomba de Incêndio',
+                        data: fireData,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                        fill: currentChartType === 'area',
+                        cubicInterpolationMode: 'monotone',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Bomba do Gerador',
+                        data: generatorData,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                        fill: currentChartType === 'area',
+                        cubicInterpolationMode: 'monotone',
+                        tension: 0.4
+                    }
+                ]
+            };
+
+            if (currentChartType === 'line' || currentChartType === 'area') {
+                chart = new Chart(ctx, {
+                    type: 'line',
+                    data: commonData,
+                    options: chartOptions
+                });
+            } else if (currentChartType === 'bar') {
+                chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: commonData,
+                    options: chartOptions
+                });
+            }
+        }
+        
+        function switchChart(type) {
+            currentChartType = type;
+            document.querySelectorAll('.animated-button').forEach(btn => {
+                btn.classList.remove('gradient-primary', 'bg-red-500', 'hover:bg-red-600');
+                btn.classList.add('glass-card', 'border', 'border-white/20', 'hover:border-white/40');
+            });
+            const activeBtn = document.getElementById(`${type}Btn`);
+            activeBtn.classList.remove('glass-card', 'border', 'border-white/20', 'hover:border-white/40');
+            activeBtn.classList.add('gradient-primary');
+            updateChart();
+        }
+
+        // --- FUNÇÕES DO MODAL DE COMPARTILHAMENTO ---
+        function shareSystem() {
+            const shareLink = document.getElementById('shareLink');
+            shareLink.value = window.location.href;
+            document.getElementById('shareModal').classList.remove('hidden');
+            document.getElementById('shareModal').classList.add('flex');
+        }
+
+        function closeShareModal() {
+            document.getElementById('shareModal').classList.add('hidden');
+        }
+
+        function copyLink() {
+            const shareLink = document.getElementById('shareLink');
+            shareLink.select();
+            document.execCommand('copy');
+            showNotification('Link copiado para a área de transferência!', 'success');
+        }
+
+        function shareWhatsApp() {
+            const message = encodeURIComponent("Confira este sistema de monitoramento de combustível: " + window.location.href);
+            window.open(`https://wa.me/?text=${message}`, '_blank');
+        }
+
+        function shareEmail() {
+            const subject = encodeURIComponent("Monitoramento de Combustível Brilux");
+            const body = encodeURIComponent("Olá, confira este sistema de monitoramento de combustível: " + window.location.href);
+            window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+        }
+        
+        // --- FUNÇÕES AUXILIARES E INICIALIZAÇÃO ---
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        function showNotification(message, type) {
+            const container = document.getElementById('notification-container');
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            container.appendChild(notification);
+            setTimeout(() => {
+                notification.style.transform = 'translateX(200%)';
+                notification.addEventListener('transitionend', () => notification.remove());
+            }, 3000);
+        }
+
+        function init() {
+            updateTime();
+            setInterval(updateTime, 60000);
+            loadData();
+            updateAll();
+        }
+
+        // Inicia o sistema
+        window.onload = init;
+    </script>
+</body>
+</html>
